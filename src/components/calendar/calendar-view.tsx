@@ -122,6 +122,11 @@ export function CalendarView({
   };
 
   const handleConfirmBooking = () => {
+    if (typeof window === 'undefined') {
+      toast({ title: "Error", description: "Window object not available. Cannot create booking.", variant: "destructive" });
+      return;
+    }
+
     if (selectedSlots.length === 0) {
       toast({
         title: 'No Slots Selected',
@@ -131,46 +136,59 @@ export function CalendarView({
       return;
     }
     
-    let clientNameInput: string | null = null;
-    let clientPromptMessage = "Client Name (Required):";
+    // Client Name Prompt
+    let clientPromptText = "Client Name (Required):";
     if (existingClientNames.length > 0) {
-      clientPromptMessage = `Client Name (Required - e.g., ${existingClientNames.join(", ")}) or type new:`;
-      clientNameInput = window.prompt(clientPromptMessage, existingClientNames[0] || "");
-    } else {
-      clientNameInput = window.prompt(clientPromptMessage, "");
+      clientPromptText = `Client Name (Required - e.g., ${existingClientNames.join(", ")}) or type new:`;
     }
+    const defaultClientName = existingClientNames.length > 0 ? (existingClientNames[0] || "") : "";
+    const clientNameInput = window.prompt(clientPromptText, defaultClientName);
 
-    if (!clientNameInput || clientNameInput.trim() === "") {
+    if (clientNameInput === null) { // User clicked "Cancel"
+      toast({ 
+        title: "Booking Cancelled", 
+        description: "Client name entry was cancelled.", 
+        variant: "destructive" 
+      });
+      return;
+    }
+    if (clientNameInput.trim() === "") { // User clicked "OK" but left it empty
       toast({ 
         title: "Client Name Missing", 
-        description: "You must enter a client name in the pop-up dialog to complete the booking. Please try again.", 
+        description: "Client name must be provided in the pop-up. Please try again.", 
         variant: "destructive" 
       });
       return;
     }
     const finalClientName = clientNameInput.trim();
 
+    // Service Details Prompt
     const serviceDetailsInput = window.prompt("Enter service details (e.g., Vocal Recording, Mixing):", "Session");
-    let finalServiceDetails = "Session";
-    if (serviceDetailsInput && serviceDetailsInput.trim() !== "") {
-      finalServiceDetails = serviceDetailsInput.trim();
-    } else if (serviceDetailsInput === null) { 
+    if (serviceDetailsInput === null) { // User clicked "Cancel"
         toast({ title: "Booking Cancelled", description: "Service details entry was cancelled.", variant: "destructive" });
         return;
     }
+    let finalServiceDetails = "Session"; // Default if user clicks OK with empty input
+    if (serviceDetailsInput.trim() !== "") {
+      finalServiceDetails = serviceDetailsInput.trim();
+    }
 
-
-    const priceInput = window.prompt(`Enter total price for the ${selectedSlots.length} selected session(s):`, "50");
-    let totalPriceForSession = 0;
-    if (priceInput !== null) {
-        totalPriceForSession = parseFloat(priceInput);
-        if (isNaN(totalPriceForSession) || totalPriceForSession < 0) {
-            toast({ title: "Booking Update", description: "Price was not a valid number. Defaulting to $0 for this booking.", variant: "destructive" });
-            totalPriceForSession = 0; 
-        }
-    } else { 
+    // Price Prompt
+    const priceInput = window.prompt(`Enter total price for the ${selectedSlots.length} selected session(s) (e.g., 50):`, "50");
+    if (priceInput === null) { // User clicked "Cancel"
         toast({ title: "Booking Cancelled", description: "Price input was cancelled.", variant: "destructive" });
         return;
+    }
+    let totalPriceForSession = 0;
+    if (priceInput.trim() === "") { // User clicked OK but left it empty
+        toast({ title: "Invalid Price", description: "Price cannot be empty. Defaulting to $0 for this booking.", variant: "destructive" });
+        totalPriceForSession = 0; 
+    } else {
+        totalPriceForSession = parseFloat(priceInput);
+        if (isNaN(totalPriceForSession) || totalPriceForSession < 0) {
+            toast({ title: "Invalid Price", description: "Price must be a valid non-negative number. Defaulting to $0 for this booking.", variant: "destructive" });
+            totalPriceForSession = 0; 
+        }
     }
 
     const pricePerSlot = selectedSlots.length > 0 ? totalPriceForSession / selectedSlots.length : 0;
@@ -264,5 +282,4 @@ export function CalendarView({
     </div>
   );
 }
-
     
