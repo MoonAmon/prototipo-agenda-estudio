@@ -128,8 +128,8 @@ export default function HomePage() {
   };
   
   const monthlyRecipe: MonthlyRecipe = useMemo(() => {
-    return calculateMonthlyClientMetrics(bookings, displayedDate, allClientsData);
-  }, [bookings, displayedDate, allClientsData]);
+    return calculateMonthlyClientMetrics(allBookingDocuments, allProjectsData, allClientsData, displayedDate);
+  }, [allBookingDocuments, allProjectsData, allClientsData, displayedDate]);
 
   const toggleClientExpansion = (clientName: string) => {
     setExpandedClients(prev => ({ ...prev, [clientName]: !prev[clientName] }));
@@ -229,7 +229,6 @@ export default function HomePage() {
                                   Projeto: {projectName} - 
                                   {booking.service || 'Sessão'} 
                                   ({calculateBookingDurationInHours(booking).toFixed(1)} hrs)
-                                  {booking.price && ` - R$${booking.price.toFixed(2)}`}
                               </li>
                              );
                           })}

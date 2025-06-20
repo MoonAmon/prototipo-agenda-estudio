@@ -58,8 +58,6 @@ export function CalendarView({
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [newProjectNameInput, setNewProjectNameInput] = useState<string>('');
   const [serviceDetails, setServiceDetails] = useState<string>('Sessão');
-  
-  const HOURLY_RATE = 50; // Placeholder hourly rate
 
   useEffect(() => {
     setCurrentDateInternal(initialDate);
@@ -182,7 +180,6 @@ export function CalendarView({
         return;
       }
       finalClientId = `new-client-${Date.now()}`; 
-      // TODO: In a real app, create client in DB and update allClients in parent state.
     } else {
       const client = allClients.find(c => c.id === selectedClientId);
       if (!client) {
@@ -202,12 +199,11 @@ export function CalendarView({
         toast({ title: "Nome do Projeto Faltando", description: "Por favor, digite um nome para o novo projeto.", variant: "destructive" });
         return;
       }
-      if (!finalClientId || finalClientId === 'NEW_CLIENT' && !newClientNameInput.trim()){
+      if (!finalClientId || (selectedClientId === 'NEW_CLIENT' && !newClientNameInput.trim())){
          toast({ title: "Cliente Necessário para Novo Projeto", description: "Um cliente deve ser selecionado ou criado antes de adicionar um novo projeto.", variant: "destructive" });
         return;
       }
       finalProjectId = `new-project-${Date.now()}`;
-      // TODO: In a real app, create project in DB and update allProjects in parent state.
     } else {
       const project = allProjects.find(p => p.id === selectedProjectId);
       if (!project) {
@@ -228,10 +224,8 @@ export function CalendarView({
       clientId: finalClientId,
       clientName: finalClientNameToDisplay, 
       projectId: finalProjectId,
-      // For UI display, project name could be added here if needed, or derived later.
       service: finalServiceDetails,
       title: `${finalClientNameToDisplay} / ${finalProjectNameToDisplay} - ${finalServiceDetails}`,
-      price: HOURLY_RATE, // Each slot is 1 hour
     }));
 
     onNewBookingsAdd(newlyConfirmedBookings); 

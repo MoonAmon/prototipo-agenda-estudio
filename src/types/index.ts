@@ -10,7 +10,6 @@ export interface Booking {
   projectName?: string; // Opcional: para facilitar a exibição, se necessário
   service?: string;
   title?: string; 
-  price?: number; // Preço para este horário/duração de agendamento específico
 }
 
 export interface TimeSlot {

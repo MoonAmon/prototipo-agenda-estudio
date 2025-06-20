@@ -22,8 +22,8 @@ import {
   startOfDay,
   endOfDay
 } from 'date-fns';
-import type { Booking, TimeSlot, MonthlyRecipe, ClientMonthlyMetrics, ProjectCostMetrics } from '@/types';
-import type { ProjectDocument, BookingDocument, ClientDocument, PacoteType } from '@/types/firestore';
+import type { Booking, TimeSlot, MonthlyRecipe, ProjectCostMetrics } from '@/types';
+import type { ProjectDocument, BookingDocument, ClientDocument } from '@/types/firestore';
 
 const BUFFER_HOURS = 1;
 export const CALENDAR_START_HOUR = 9;
@@ -96,25 +96,53 @@ export function checkSlotAvailability(
 }
 
 /**
- * Centralized function to get the hourly rate for a project.
+ * Determines the price per hour for a project based on its billing model and total hours.
+ * Custom rates override tiered pricing.
+ * @param project The project document.
+ * @param totalHours The total hours booked for this project.
+ * @returns The price per hour.
  */
-export function getPricePerHourForProject(project: ProjectDocument): number {
-    if (!project) return 0;
-
-    if (project.billingType === 'personalizado') {
-        return project.customRate ?? 0;
+function getProjectPricePerHour(project: ProjectDocument, totalHours: number): number {
+    // A specific custom rate on a 'personalizado' project always wins.
+    if (project.billingType === 'personalizado' && typeof project.customRate === 'number') {
+        return project.customRate;
     }
 
-    if (project.billingType === 'pacote') {
-        switch (project.pacoteSelecionado) {
-            case 'Avulso': return 350;
-            case 'Pacote 10h': return 260;
-            case 'Pacote 20h': return 230;
-            case 'Pacote 40h': return 160;
-            default: return 350; // Default to Avulso if package is not specified
-        }
-    }
-    return 0; // Should not be reached
+    // For 'pacote' billing, apply tiered pricing based on total hours.
+    // This also serves as the default for any other cases.
+    if (totalHours >= 40) return 160;
+    if (totalHours >= 20) return 230;
+    if (totalHours >= 10) return 260;
+    
+    // Default rate for < 10 hours is R$350.
+    return 350;
+}
+
+/**
+ * Calculates the total cost metrics for a given project based on all its bookings.
+ * @param projectBookings ALL bookings for this project.
+ * @param project The project document.
+ * @returns The cost metrics, or null if project is not provided.
+ */
+export function calculateProjectCost(
+  projectBookings: BookingDocument[], // Pass only bookings for this project
+  project: ProjectDocument | undefined
+): ProjectCostMetrics | null {
+
+  if (!project) {
+    console.error(`Project details not provided.`);
+    return null;
+  }
+  
+  const totalHours = projectBookings.reduce((sum, booking) => sum + booking.duration, 0);
+  const pricePerHour = getProjectPricePerHour(project, totalHours);
+  const totalAmount = totalHours * pricePerHour;
+
+  return {
+    totalHours,
+    pricePerHour,
+    totalAmount,
+  };
 }
 
 
@@ -141,10 +169,6 @@ export function getBookingsForWeek(
       const projectName = project ? project.name : "Projeto Desconhecido";
       const service = `Sessão para ${projectName}`; 
       
-      const pricePerHour = project ? getPricePerHourForProject(project) : 0;
-      const bookingPrice = doc.duration * pricePerHour;
-
-
       return {
         id: doc.id,
         startTime: new Date(doc.startTime),
@@ -154,7 +178,6 @@ export function getBookingsForWeek(
         projectId: doc.projectId,
         service: service, 
         title: `${clientName} / ${projectName} - ${service.substring(0,20)}`,
-        price: bookingPrice
       };
     });
 }
@@ -167,83 +190,72 @@ export function calculateBookingDurationInHours(booking: Booking | BookingDocume
   return parseFloat((durationMillis / (1000 * 60 * 60)).toFixed(1));
 }
 
-// Tiered pricing for client monthly invoices (NOT directly for project cost)
-function getTieredPricePerHour(totalHours: number): number {
-  if (totalHours >= 40) return 160;
-  if (totalHours >= 20) return 230; 
-  if (totalHours >= 10) return 260; 
-  return 350; 
-}
-
-export function calculateClientMonthlyInvoice(bookingDurations: number[]): ClientMonthlyMetrics {
-  const totalHours = bookingDurations.reduce((sum, duration) => sum + duration, 0);
-  const pricePerHour = getTieredPricePerHour(totalHours);
-  const totalAmount = totalHours * pricePerHour;
-  return { totalHours, pricePerHour, totalAmount };
-}
 
 export function calculateMonthlyClientMetrics(
-  uiBookings: Booking[], 
-  targetDateForMonth: Date,
-  allClients: ClientDocument[]
+  allBookingDocuments: BookingDocument[],
+  allProjects: ProjectDocument[],
+  allClients: ClientDocument[],
+  targetDateForMonth: Date
 ): MonthlyRecipe {
-  const clientBookingsData: Record<string, { durations: number[], clientName: string, totalDirectPrice: number }> = {};
+  const monthlyRecipe: MonthlyRecipe = {};
 
-  uiBookings.forEach(booking => {
-    if (isSameMonth(new Date(booking.startTime), targetDateForMonth) && booking.clientId) {
-      const client = allClients.find(c => c.id === booking.clientId);
-      const clientNameForRecipe = client ? client.name : `Cliente ID: ${booking.clientId}`;
+  const monthlyBookings = allBookingDocuments.filter(b =>
+    isSameMonth(new Date(b.startTime), targetDateForMonth)
+  );
 
-      if (!clientBookingsData[clientNameForRecipe]) {
-        clientBookingsData[clientNameForRecipe] = {
-          durations: [],
-          clientName: clientNameForRecipe,
-          totalDirectPrice: 0,
-        };
-      }
-      const duration = calculateBookingDurationInHours(booking);
-      clientBookingsData[clientNameForRecipe].durations.push(duration);
-      // Summing up the 'price' from each UI booking, which is already calculated based on project rates
-      clientBookingsData[clientNameForRecipe].totalDirectPrice += booking.price || 0; 
+  const clientBookings: Record<string, BookingDocument[]> = {};
+  monthlyBookings.forEach(booking => {
+    if (!clientBookings[booking.clientId]) {
+      clientBookings[booking.clientId] = [];
     }
+    clientBookings[booking.clientId].push(booking);
   });
 
-  const monthlyRecipe: MonthlyRecipe = {};
-  for (const clientNameKey in clientBookingsData) {
-    const data = clientBookingsData[clientNameKey];
-    const totalHours = data.durations.reduce((sum, duration) => sum + duration, 0);
-    
-    // The pricePerHour here is an *average* if rates varied, or the consistent rate if not.
-    // The totalAmount is the sum of pre-calculated booking prices.
-    const effectivePricePerHour = totalHours > 0 ? data.totalDirectPrice / totalHours : 0;
+  for (const clientId in clientBookings) {
+    const client = allClients.find(c => c.id === clientId);
+    if (!client) continue;
 
-    monthlyRecipe[data.clientName] = { 
-        totalHours, 
-        pricePerHour: effectivePricePerHour, 
-        totalAmount: data.totalDirectPrice
+    let clientTotalHours = 0;
+    let clientTotalAmount = 0;
+
+    const projectGroups: Record<string, BookingDocument[]> = {};
+    clientBookings[clientId].forEach(booking => {
+      if (!projectGroups[booking.projectId]) {
+        projectGroups[booking.projectId] = [];
+      }
+      projectGroups[booking.projectId].push(booking);
+    });
+
+    for (const projectId in projectGroups) {
+      const project = allProjects.find(p => p.id === projectId);
+      if (!project) continue;
+
+      const allBookingsForThisProject = allBookingDocuments.filter(
+        b => b.projectId === projectId
+      );
+      
+      const projectCostMetrics = calculateProjectCost(allBookingsForThisProject, project);
+      
+      if (projectCostMetrics) {
+        const monthlyBookingsForThisProject = projectGroups[projectId];
+        const monthlyHoursForThisProject = monthlyBookingsForThisProject.reduce(
+          (sum, b) => sum + b.duration,
+          0
+        );
+
+        clientTotalHours += monthlyHoursForThisProject;
+        clientTotalAmount += monthlyHoursForThisProject * projectCostMetrics.pricePerHour;
+      }
+    }
+    
+    const effectivePricePerHour = clientTotalHours > 0 ? clientTotalAmount / clientTotalHours : 0;
+    
+    monthlyRecipe[client.name] = {
+      totalHours: clientTotalHours,
+      pricePerHour: effectivePricePerHour,
+      totalAmount: clientTotalAmount,
     };
   }
+
   return monthlyRecipe;
-}
-
-
-export function calculateProjectCost(
-  projectBookings: BookingDocument[], // Pass only bookings for this project
-  project: ProjectDocument | undefined
-): ProjectCostMetrics | null {
-
-  if (!project) {
-    console.error(`Project details not provided.`);
-    return null;
-  }
-  
-  const totalHours = projectBookings.reduce((sum, booking) => sum + booking.duration, 0);
-  const pricePerHour = getPricePerHourForProject(project);
-  const totalAmount = totalHours * pricePerHour;
-
-  return {
-    totalHours,
-    pricePerHour,
-    totalAmount,
-  };
 }

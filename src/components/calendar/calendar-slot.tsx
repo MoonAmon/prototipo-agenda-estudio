@@ -38,17 +38,11 @@ export function CalendarSlot({ slot, onSlotClick }: CalendarSlotProps) {
     if (bookingDetails?.clientName) {
       tooltipMessage += ` por ${bookingDetails.clientName}`;
     }
-    if (bookingDetails?.price !== undefined) {
-      tooltipMessage += ` - Preço: R$${bookingDetails.price.toFixed(2)}`;
-    }
   } else if (isBuffer) {
     IconComponent = MinusCircle;
     iconColorClass = 'text-yellow-500';
     slotBgClass = 'bg-yellow-500/10 hover:bg-yellow-500/20 cursor-not-allowed';
     tooltipMessage = `Tempo de segurança (relacionado a: ${bookingDetails?.title || bookingDetails?.service || 'Evento'})`;
-     if (bookingDetails?.price !== undefined) {
-      tooltipMessage += ` - Preço: R$${bookingDetails.price.toFixed(2)}`;
-    }
   } else { // Available and not selected
     IconComponent = CheckCircle;
     iconColorClass = 'text-green-500';
