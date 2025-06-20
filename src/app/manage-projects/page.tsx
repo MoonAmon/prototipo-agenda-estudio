@@ -103,10 +103,11 @@ const projectSchema = z.object({
 export default function ManageProjectsClientsPage() {
   const { toast } = useToast();
   
-  // Component State
-  const [clients, setClients] = useState<ClientDocument[]>(sampleClients);
-  const [projects, setProjects] = useState<ProjectDocument[]>(sampleProjects);
-  const [bookings, setBookings] = useState<BookingDocument[]>(sampleBookings);
+  // State management
+  const [clients, setClients] = useState<ClientDocument[]>([]);
+  const [projects, setProjects] = useState<ProjectDocument[]>([]);
+  const [bookings, setBookings] = useState<BookingDocument[]>([]);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
   
   // Modal & Dialog State
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
@@ -126,6 +127,54 @@ export default function ManageProjectsClientsPage() {
   const [receiptText, setReceiptText] = useState('');
   const [receiptDetails, setReceiptDetails] = useState<{ clientName: string, projectName: string } | null>(null);
 
+  const STORAGE_KEY = 'sessionSnapData';
+
+  // Load data from local storage on component mount
+  useEffect(() => {
+    try {
+      const storedData = localStorage.getItem(STORAGE_KEY);
+      if (storedData) {
+        const { clients: storedClients, projects: storedProjects, bookings: storedBookings } = JSON.parse(storedData);
+        
+        const parsedBookings = storedBookings.map((b: any) => ({
+          ...b,
+          startTime: new Date(b.startTime),
+          endTime: new Date(b.endTime),
+        }));
+        const parsedProjects = storedProjects.map((p: any) => ({
+          ...p,
+          createdAt: new Date(p.createdAt),
+        }));
+
+        setClients(storedClients);
+        setProjects(parsedProjects);
+        setBookings(parsedBookings);
+      } else {
+        // Initialize with sample data if nothing is in storage
+        setClients(sampleClients);
+        setProjects(sampleProjects);
+        setBookings(sampleBookings);
+      }
+    } catch (error) {
+        console.error("Failed to parse data from localStorage, falling back to sample data.", error);
+        setClients(sampleClients);
+        setProjects(sampleProjects);
+        setBookings(sampleBookings);
+    }
+    setIsDataLoaded(true);
+  }, []);
+
+  // Update localStorage whenever state changes
+  useEffect(() => {
+    if (isDataLoaded) {
+      const dataToStore = {
+        clients,
+        projects,
+        bookings,
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToStore));
+    }
+  }, [clients, projects, bookings, isDataLoaded]);
 
   // React Hook Form instances
   const clientForm = useForm<z.infer<typeof clientSchema>>({
@@ -301,6 +350,9 @@ export default function ManageProjectsClientsPage() {
     toast({ title: "Recibo Copiado!", description: "O texto do recibo foi copiado para a área de transferência." });
   };
 
+  if (!isDataLoaded) {
+    return <div className="flex h-screen items-center justify-center p-8">Carregando dados...</div>;
+  }
 
   return (
     <Suspense fallback={<div className="p-8">Carregando página de gerenciamento...</div>}>

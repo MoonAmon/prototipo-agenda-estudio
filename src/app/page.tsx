@@ -30,15 +30,55 @@ export default function HomePage() {
   const [bookings, setBookings] = useState<Booking[]>([]); 
   const [expandedClients, setExpandedClients] = useState<Record<string, boolean>>({});
 
-  const [allClientsData, setAllClientsData] = useState<ClientDocument[]>(sampleClients);
-  const [allProjectsData, setAllProjectsData] = useState<ProjectDocument[]>(sampleProjects);
-  const [allBookingDocuments, setAllBookingDocuments] = useState<BookingDocument[]>(allSampleBookingDocuments);
+  const [allClientsData, setAllClientsData] = useState<ClientDocument[]>([]);
+  const [allProjectsData, setAllProjectsData] = useState<ProjectDocument[]>([]);
+  const [allBookingDocuments, setAllBookingDocuments] = useState<BookingDocument[]>([]);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
 
+  const STORAGE_KEY = 'sessionSnapData';
+
+  // Load data from local storage on component mount
+  useEffect(() => {
+    try {
+      const storedData = localStorage.getItem(STORAGE_KEY);
+      if (storedData) {
+        const { clients, projects, bookings } = JSON.parse(storedData);
+        
+        const parsedBookings = bookings.map((b: any) => ({
+          ...b,
+          startTime: new Date(b.startTime),
+          endTime: new Date(b.endTime),
+        }));
+        const parsedProjects = projects.map((p: any) => ({
+          ...p,
+          createdAt: new Date(p.createdAt),
+        }));
+
+        setAllClientsData(clients);
+        setAllProjectsData(parsedProjects);
+        setAllBookingDocuments(parsedBookings);
+      } else {
+        // Initialize with sample data if nothing is in storage
+        setAllClientsData(sampleClients);
+        setAllProjectsData(sampleProjects);
+        setAllBookingDocuments(allSampleBookingDocuments);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ clients: sampleClients, projects: sampleProjects, bookings: allSampleBookingDocuments }));
+      }
+    } catch (error) {
+        console.error("Failed to parse data from localStorage, falling back to sample data.", error);
+        setAllClientsData(sampleClients);
+        setAllProjectsData(sampleProjects);
+        setAllBookingDocuments(allSampleBookingDocuments);
+    }
+    setIsDataLoaded(true);
+  }, []);
 
   useEffect(() => {
-    const currentWeekDates = getWeekDates(displayedDate);
-    setBookings(getBookingsForWeek(currentWeekDates, allBookingDocuments, allClientsData, allProjectsData));
-  }, [displayedDate, allBookingDocuments, allClientsData, allProjectsData]);
+    if (isDataLoaded) {
+      const currentWeekDates = getWeekDates(displayedDate);
+      setBookings(getBookingsForWeek(currentWeekDates, allBookingDocuments, allClientsData, allProjectsData));
+    }
+  }, [displayedDate, allBookingDocuments, allClientsData, allProjectsData, isDataLoaded]);
 
   const handleNewBookings = (newlyConfirmedUiBookings: Booking[]) => {
     // Convert UI Bookings to BookingDocuments
@@ -51,33 +91,40 @@ export default function HomePage() {
       duration: calculateBookingDurationInHours(uiBooking),
     }));
     
-    setAllBookingDocuments(prevDocs => [...prevDocs, ...newBookingDocuments]);
-    
-    // Check if new clients or projects were created (based on temporary IDs)
-    // In a real app, you'd add them to Firestore and then refetch or update state.
-    // For this mock, we'll add them to our local state if they have temp IDs.
+    const updatedBookingDocs = [...allBookingDocuments, ...newBookingDocuments];
+    let updatedClients = [...allClientsData];
+    let updatedProjects = [...allProjectsData];
+
     newlyConfirmedUiBookings.forEach(uiBooking => {
-      if (uiBooking.clientId.startsWith('new-client-')) {
-        const existingClient = allClientsData.find(c => c.id === uiBooking.clientId);
-        if (!existingClient) {
-          setAllClientsData(prev => [...prev, {id: uiBooking.clientId, name: uiBooking.clientName, phone: 'N/A'}]);
-        }
+      // Check if a new client was created and add them to the state if they don't exist
+      if (uiBooking.clientId.startsWith('new-client-') && !updatedClients.find(c => c.id === uiBooking.clientId)) {
+        updatedClients.push({id: uiBooking.clientId, name: uiBooking.clientName, phone: 'N/A'});
       }
-      if (uiBooking.projectId.startsWith('new-project-')) {
-         const existingProject = allProjectsData.find(p => p.id === uiBooking.projectId);
-         if (!existingProject) {
-            const projectName = uiBooking.title?.split(' / ')[1]?.split(' - ')[0] || 'New Project';
-            setAllProjectsData(prev => [...prev, {
-              id: uiBooking.projectId, 
-              clientId: uiBooking.clientId, 
-              name: projectName, 
-              billingType: 'personalizado', // Default for new projects from calendar
-              customRate: 0, // Default
-              createdAt: new Date()
-            }]);
-         }
+      // Check if a new project was created and add them to the state if they don't exist
+      if (uiBooking.projectId.startsWith('new-project-') && !updatedProjects.find(p => p.id === uiBooking.projectId)) {
+        const projectName = uiBooking.title?.split(' / ')[1]?.split(' - ')[0] || 'New Project';
+        updatedProjects.push({
+          id: uiBooking.projectId, 
+          clientId: uiBooking.clientId, 
+          name: projectName, 
+          billingType: 'personalizado', // Default for new projects from calendar
+          customRate: 0, // Default
+          createdAt: new Date()
+        });
       }
     });
+
+    // Update state for all three data types
+    setAllBookingDocuments(updatedBookingDocs);
+    setAllClientsData(updatedClients);
+    setAllProjectsData(updatedProjects);
+    
+    // Save the complete updated state to localStorage
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      clients: updatedClients,
+      projects: updatedProjects,
+      bookings: updatedBookingDocs
+    }));
   };
   
   const monthlyRecipe: MonthlyRecipe = useMemo(() => {
@@ -87,6 +134,10 @@ export default function HomePage() {
   const toggleClientExpansion = (clientName: string) => {
     setExpandedClients(prev => ({ ...prev, [clientName]: !prev[clientName] }));
   };
+
+  if (!isDataLoaded) {
+    return <div className="flex h-screen items-center justify-center p-8">Carregando dados...</div>;
+  }
 
   return (
     <Suspense fallback={<div>Carregando conteúdo da página...</div>}>
