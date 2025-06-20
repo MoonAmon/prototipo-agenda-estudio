@@ -1,10 +1,11 @@
 
 import type { ClientDocument, ProjectDocument, BookingDocument, PacoteType, BillingType } from '@/types/firestore';
 
-// Função auxiliar para calcular a duração em horas
+// Função auxiliar para calcular a duração em horas, arredondando para uma casa decimal
 const calculateDuration = (start: Date, end: Date): number => {
   const diffMilliseconds = end.getTime() - start.getTime();
-  return parseFloat((diffMilliseconds / (1000 * 60 * 60)).toFixed(2));
+  // Arredonda para 1 casa decimal
+  return parseFloat((diffMilliseconds / (1000 * 60 * 60)).toFixed(1));
 };
 
 // Clientes de Amostra
@@ -73,6 +74,20 @@ export const sampleProjects: ProjectDocument[] = [
   },
 ];
 
+// Datas de amostra dinâmicas para garantir que sempre haja algo próximo ao dia atual
+const today = new Date();
+const tomorrow = new Date(today);
+tomorrow.setDate(today.getDate() + 1);
+const dayAfterTomorrow = new Date(today);
+dayAfterTomorrow.setDate(today.getDate() + 2);
+
+const tomorrowStart = new Date(tomorrow.setHours(10, 0, 0, 0));
+const tomorrowEnd = new Date(tomorrow.setHours(11, 0, 0, 0));
+
+const dayAfterTomorrowStart = new Date(dayAfterTomorrow.setHours(14, 0, 0, 0));
+const dayAfterTomorrowEnd = new Date(dayAfterTomorrow.setHours(16, 0, 0, 0));
+
+
 // Agendamentos de Amostra
 // Garanta que todos os agendamentos tenham um clientId e projectId válidos
 export const sampleBookings: BookingDocument[] = [
@@ -82,16 +97,16 @@ export const sampleBookings: BookingDocument[] = [
     clientId: 'client_002',
     projectId: 'project_beta_002',
     startTime: new Date('2023-10-02T09:00:00Z'),
-    endTime: new Date('2023-10-02T12:00:00Z'), // 3 horas
-    duration: calculateDuration(new Date('2023-10-02T09:00:00Z'), new Date('2023-10-02T12:00:00Z')),
+    endTime: new Date('2023-10-02T12:00:00Z'),
+    duration: 3.0,
   },
   {
     id: 'booking_rs002',
     clientId: 'client_002',
     projectId: 'project_beta_002',
     startTime: new Date('2023-10-03T14:00:00Z'),
-    endTime: new Date('2023-10-03T17:00:00Z'), // 3 horas
-    duration: calculateDuration(new Date('2023-10-03T14:00:00Z'), new Date('2023-10-03T17:00:00Z')),
+    endTime: new Date('2023-10-03T17:00:00Z'),
+    duration: 3.0,
   },
   // Bookings para project_gamma_003 (total 5h de 20h) -> Em Execução
   {
@@ -99,8 +114,8 @@ export const sampleBookings: BookingDocument[] = [
     clientId: 'client_001',
     projectId: 'project_gamma_003',
     startTime: new Date('2023-11-10T13:00:00Z'),
-    endTime: new Date('2023-11-10T18:00:00Z'), // 5 horas
-    duration: calculateDuration(new Date('2023-11-10T13:00:00Z'), new Date('2023-11-10T18:00:00Z')),
+    endTime: new Date('2023-11-10T18:00:00Z'),
+    duration: 5.0,
   },
   // Bookings para project_epsilon_005 (total 10h de 10h) -> Completo
    {
@@ -108,24 +123,24 @@ export const sampleBookings: BookingDocument[] = [
     clientId: 'client_002',
     projectId: 'project_epsilon_005',
     startTime: new Date('2024-02-05T09:00:00Z'),
-    endTime: new Date('2024-02-05T13:00:00Z'), // 4 horas
-    duration: 4,
+    endTime: new Date('2024-02-05T13:00:00Z'),
+    duration: 4.0,
   },
   {
     id: 'booking_lv002',
     clientId: 'client_002',
     projectId: 'project_epsilon_005',
     startTime: new Date('2024-02-06T10:00:00Z'),
-    endTime: new Date('2024-02-06T14:00:00Z'), // 4 horas
-    duration: 4,
+    endTime: new Date('2024-02-06T14:00:00Z'),
+    duration: 4.0,
   },
   {
     id: 'booking_lv003',
     clientId: 'client_002',
     projectId: 'project_epsilon_005',
     startTime: new Date('2024-02-06T14:00:00Z'), // contínuo com o anterior
-    endTime: new Date('2024-02-06T16:00:00Z'), // 2 horas
-    duration: 2,
+    endTime: new Date('2024-02-06T16:00:00Z'),
+    duration: 2.0,
   },
   // Outros bookings
   {
@@ -133,39 +148,40 @@ export const sampleBookings: BookingDocument[] = [
     clientId: 'client_001',
     projectId: 'project_alpha_001',
     startTime: new Date('2023-09-12T10:00:00Z'),
-    endTime: new Date('2023-09-12T15:00:00Z'), // 5 horas
-    duration: 5,
+    endTime: new Date('2023-09-12T15:00:00Z'),
+    duration: 5.0,
   },
   {
     id: 'booking_sg002',
     clientId: 'client_001',
     projectId: 'project_alpha_001',
     startTime: new Date('2023-09-13T10:00:00Z'),
-    endTime: new Date('2023-09-13T18:00:00Z'), // 8 horas
-    duration: 8,
+    endTime: new Date('2023-09-13T18:00:00Z'),
+    duration: 8.0,
   },
   {
     id: 'booking_td001',
     clientId: 'client_003',
     projectId: 'project_delta_004',
     startTime: new Date('2024-01-20T10:00:00Z'),
-    endTime: new Date('2024-01-20T14:00:00Z'), // 4 horas
-    duration: 4,
+    endTime: new Date('2024-01-20T14:00:00Z'),
+    duration: 4.0,
   },
+  // Bookings com datas dinâmicas para testes
   {
     id: 'booking_cal001',
     clientId: 'client_001',
     projectId: 'project_general_calendar',
-    startTime: new Date(new Date().setDate(new Date().getDate() + 1)),
-    endTime: new Date(new Date(new Date().setDate(new Date().getDate() + 1)).setHours(11,0,0,0)),
-    duration: 1,
+    startTime: tomorrowStart,
+    endTime: tomorrowEnd,
+    duration: calculateDuration(tomorrowStart, tomorrowEnd),
   },
    {
     id: 'booking_cal002',
     clientId: 'client_002',
     projectId: 'project_general_calendar',
-    startTime: new Date(new Date().setDate(new Date().getDate() + 2)),
-    endTime: new Date(new Date(new Date().setDate(new Date().getDate() + 2)).setHours(16,0,0,0)),
-    duration: 2,
+    startTime: dayAfterTomorrowStart,
+    endTime: dayAfterTomorrowEnd,
+    duration: calculateDuration(dayAfterTomorrowStart, dayAfterTomorrowEnd),
   },
 ];

@@ -67,7 +67,7 @@ import { useToast } from '@/hooks/use-toast';
 import { sampleClients, sampleProjects, sampleBookings } from '@/lib/sample-firestore-data';
 import { calculateProjectCost } from '@/lib/calendar-utils';
 import type { ClientDocument, ProjectDocument, BookingDocument, BillingType, PacoteType } from '@/types/firestore';
-import { Pencil, PlusCircle, Trash2, ArrowLeft, FileText, Copy } from 'lucide-react';
+import { Pencil, PlusCircle, Trash2, ArrowLeft, FileText, Copy, BarChartHorizontal } from 'lucide-react';
 
 // Zod Schemas for form validation
 const clientSchema = z.object({
@@ -229,22 +229,28 @@ export default function ManageProjectsClientsPage() {
 
     const mergeSessions = (sessions: BookingDocument[]) => {
         if (sessions.length === 0) return [];
+        // Sort sessions by start time to ensure correct merging
         const sorted = [...sessions].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
         const merged: { start: Date; end: Date }[] = [];
+        
         if (sorted.length === 0) return merged;
         
         let currentSession = { start: new Date(sorted[0].startTime), end: new Date(sorted[0].endTime) };
+
         for (let i = 1; i < sorted.length; i++) {
             const nextSessionStart = new Date(sorted[i].startTime);
             const nextSessionEnd = new Date(sorted[i].endTime);
-            if (Math.abs(currentSession.end.getTime() - nextSessionStart.getTime()) < 1000) { // Compare within 1s tolerance
-                currentSession.end = nextSessionEnd;
+
+            // If the next session starts exactly when the current one ends, merge them
+            if (currentSession.end.getTime() === nextSessionStart.getTime()) {
+                currentSession.end = nextSessionEnd; // Extend the end time
             } else {
+                // Otherwise, push the completed session and start a new one
                 merged.push(currentSession);
                 currentSession = { start: nextSessionStart, end: nextSessionEnd };
             }
         }
-        merged.push(currentSession);
+        merged.push(currentSession); // Add the last session
         return merged;
     };
 
@@ -264,7 +270,7 @@ export default function ManageProjectsClientsPage() {
         mergedDailySessions.push({ day: format(new Date(dayKey), 'dd/MM/yyyy', { locale: ptBR }), ranges });
     });
 
-    const costMetrics = calculateProjectCost(projectBookings, [project]);
+    const costMetrics = calculateProjectCost(projectBookings, project);
     if (!costMetrics) {
       toast({ title: "Erro ao calcular custo", description: "Não foi possível gerar o recibo.", variant: "destructive"});
       return;
@@ -280,7 +286,7 @@ export default function ManageProjectsClientsPage() {
     });
     receipt += `\n`;
     receipt += `DETALHAMENTO FINANCEIRO:\n`;
-    receipt += `- Total de Horas: ${costMetrics.totalHours.toFixed(2)}h\n`;
+    receipt += `- Total de Horas: ${costMetrics.totalHours.toFixed(1)}h\n`;
     receipt += `- Valor por Hora: R$${costMetrics.pricePerHour.toFixed(2)}\n`;
     receipt += `----------------------------------------\n`;
     receipt += `VALOR TOTAL: R$${costMetrics.totalAmount.toFixed(2)}\n`;
@@ -351,7 +357,9 @@ export default function ManageProjectsClientsPage() {
                   .filter(p => p.clientId === client.id && p.id !== 'project_general_calendar')
                   .map(project => {
                     const projectBookings = bookings.filter(b => b.projectId === project.id);
-                    const totalBookedHours = projectBookings.reduce((acc, booking) => acc + booking.duration, 0);
+                    const projectMetrics = calculateProjectCost(projectBookings, project);
+                    
+                    const totalBookedHours = projectMetrics?.totalHours || 0;
                     const targetHours = project.targetHours || 0;
                     const progressPercentage = targetHours > 0 ? Math.min((totalBookedHours / targetHours) * 100, 100) : 0;
                     const isCompleted = targetHours > 0 && totalBookedHours >= targetHours;
@@ -369,14 +377,17 @@ export default function ManageProjectsClientsPage() {
                             </div>
                           </AccordionTrigger>
                           <AccordionContent className="px-4 py-4 bg-card rounded-b-md">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-                              <div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                               <div className="space-y-1">
                                   <p className="text-sm"><strong className="text-muted-foreground">Tipo de Cobrança:</strong> <span className="font-medium">{project.billingType}</span></p>
                                   {project.billingType === 'pacote' && project.pacoteSelecionado && (
                                   <p className="text-sm"><strong className="text-muted-foreground">Pacote:</strong> <span className="font-medium">{project.pacoteSelecionado}</span></p>
                                   )}
-                                  {project.billingType === 'personalizado' && typeof project.customRate === 'number' && (
-                                  <p className="text-sm"><strong className="text-muted-foreground">Valor Personalizado:</strong> <span className="font-medium">R${project.customRate.toFixed(2)}/hora</span></p>
+                                  {projectMetrics && (
+                                    <>
+                                      <p className="text-sm"><strong className="text-muted-foreground">Valor por Hora:</strong> <span className="font-medium">R${projectMetrics.pricePerHour.toFixed(2)}</span></p>
+                                      <p className="text-sm"><strong className="text-muted-foreground">Valor Total Atual:</strong> <span className="font-semibold text-accent">R${projectMetrics.totalAmount.toFixed(2)}</span></p>
+                                    </>
                                   )}
                               </div>
                               <div className="flex md:justify-end items-start gap-2">
@@ -436,7 +447,7 @@ export default function ManageProjectsClientsPage() {
                                         <TableRow key={booking.id} className="hover:bg-muted/10">
                                           <TableCell>{format(new Date(booking.startTime), 'd MMM, yyyy HH:mm', { locale: ptBR })}</TableCell>
                                           <TableCell>{format(new Date(booking.endTime), 'd MMM, yyyy HH:mm', { locale: ptBR })}</TableCell>
-                                          <TableCell className="text-right">{booking.duration.toFixed(2)}</TableCell>
+                                          <TableCell className="text-right">{booking.duration.toFixed(1)}</TableCell>
                                         </TableRow>
                                     ))}
                                   </TableBody>

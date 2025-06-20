@@ -95,6 +95,29 @@ export function checkSlotAvailability(
   return { isBooked: false, isBuffer: false };
 }
 
+/**
+ * Centralized function to get the hourly rate for a project.
+ */
+export function getPricePerHourForProject(project: ProjectDocument): number {
+    if (!project) return 0;
+
+    if (project.billingType === 'personalizado') {
+        return project.customRate ?? 0;
+    }
+
+    if (project.billingType === 'pacote') {
+        switch (project.pacoteSelecionado) {
+            case 'Avulso': return 350;
+            case 'Pacote 10h': return 260;
+            case 'Pacote 20h': return 230;
+            case 'Pacote 40h': return 160;
+            default: return 350; // Default to Avulso if package is not specified
+        }
+    }
+    return 0; // Should not be reached
+}
+
+
 export function getBookingsForWeek(
   weekDates: Date[],
   allBookingDocuments: BookingDocument[],
@@ -116,9 +139,10 @@ export function getBookingsForWeek(
       const project = allProjects.find(p => p.id === doc.projectId);
       const clientName = client ? client.name : 'Cliente Desconhecido';
       const projectName = project ? project.name : "Projeto Desconhecido";
-      // Assuming a default service or deriving from project if needed
       const service = `Sessão para ${projectName}`; 
-      const bookingPrice = project ? calculateProjectCost([doc], [project])?.totalAmount : 0;
+      
+      const pricePerHour = project ? getPricePerHourForProject(project) : 0;
+      const bookingPrice = doc.duration * pricePerHour;
 
 
       return {
@@ -130,7 +154,7 @@ export function getBookingsForWeek(
         projectId: doc.projectId,
         service: service, 
         title: `${clientName} / ${projectName} - ${service.substring(0,20)}`,
-        price: bookingPrice // This will be per-booking price based on project's rate for its duration
+        price: bookingPrice
       };
     });
 }
@@ -139,7 +163,8 @@ export function getBookingsForWeek(
 export function calculateBookingDurationInHours(booking: Booking | BookingDocument): number {
   if (!booking.startTime || !booking.endTime) return 0;
   const durationMillis = new Date(booking.endTime).getTime() - new Date(booking.startTime).getTime();
-  return durationMillis / (1000 * 60 * 60);
+  // Round to 1 decimal place
+  return parseFloat((durationMillis / (1000 * 60 * 60)).toFixed(1));
 }
 
 // Tiered pricing for client monthly invoices (NOT directly for project cost)
@@ -204,63 +229,16 @@ export function calculateMonthlyClientMetrics(
 
 export function calculateProjectCost(
   projectBookings: BookingDocument[], // Pass only bookings for this project
-  projectDetailsArray: ProjectDocument[] // Should be an array with one project, or find it
+  project: ProjectDocument | undefined
 ): ProjectCostMetrics | null {
 
-  if (!projectDetailsArray || projectDetailsArray.length === 0) {
-     console.error(`Project details not provided.`);
-    return null;
-  }
-  const project = projectDetailsArray[0]; // Assuming the correct project is passed
-
   if (!project) {
-    console.error(`Project not found in provided details.`);
+    console.error(`Project details not provided.`);
     return null;
   }
   
-  let totalHours = 0;
-  for (const booking of projectBookings) {
-    totalHours += booking.duration; 
-  }
-
-  let pricePerHour: number;
-
-  if (project.billingType === 'personalizado') {
-    if (typeof project.customRate !== 'number') {
-      console.warn(`O projeto ${project.id} tem tipo de cobrança "personalizado", mas o valor customRate está ausente ou é inválido. Usando 0 como padrão.`);
-      pricePerHour = 0; // Default or handle as error
-    } else {
-      pricePerHour = project.customRate;
-    }
-  } else if (project.billingType === 'pacote') {
-    if (!project.pacoteSelecionado) {
-      console.warn(`O projeto ${project.id} tem tipo de cobrança "pacote", mas o pacoteSelecionado está ausente. Usando o valor de Avulso como padrão.`);
-      pricePerHour = 350; // Default to Avulso or handle as error
-    } else {
-      switch (project.pacoteSelecionado) {
-        case 'Avulso':
-          pricePerHour = 350;
-          break;
-        case 'Pacote 10h':
-          pricePerHour = 260;
-          break;
-        case 'Pacote 20h':
-          pricePerHour = 230;
-          break;
-        case 'Pacote 40h':
-          pricePerHour = 160;
-          break;
-        default:
-          console.warn(`O projeto ${project.id} tem um pacoteSelecionado desconhecido: ${project.pacoteSelecionado}. Usando o valor de Avulso como padrão.`);
-          pricePerHour = 350; // Default or handle as error
-          break;
-      }
-    }
-  } else {
-    console.error(`O projeto ${project.id} tem um tipo de cobrança desconhecido: ${project.billingType}`);
-    return null;
-  }
-
+  const totalHours = projectBookings.reduce((sum, booking) => sum + booking.duration, 0);
+  const pricePerHour = getPricePerHourForProject(project);
   const totalAmount = totalHours * pricePerHour;
 
   return {
