@@ -100,10 +100,14 @@ export function CalendarView({
     const { isBooked, isBuffer } = checkSlotAvailability(slotTime, bookings);
     
     if (isBooked || isBuffer) {
+        // If it's already selected, clicking again should deselect it IF it wasn't originally booked/buffer
+        // However, the primary guard is to prevent selection of booked/buffer slots.
+        // The current logic correctly deselects if it was previously selected and now becomes unavailable
+        // due to external booking changes, or if it was simply a mistake.
         setSelectedSlots(prevSelected => prevSelected.filter(s => s.getTime() !== slotTime.getTime()));
         toast({
           title: 'Slot Unavailable',
-          description: 'This time slot is already booked or is a buffer.',
+          description: 'This time slot is already booked or is a buffer time.',
           variant: 'destructive',
         });
         return;
@@ -132,34 +136,37 @@ export function CalendarView({
     }
     
     let clientNameInput: string | null = null;
-    let promptMessage = "Enter client name";
+    let clientPromptMessage = "Client Name (Required):";
     if (existingClientNames.length > 0) {
-      promptMessage = `Enter client name (e.g., ${existingClientNames.join(", ")}) or type a new name:`;
-      clientNameInput = window.prompt(promptMessage, existingClientNames[0] || "");
+      clientPromptMessage = `Client Name (Required - e.g., ${existingClientNames.join(", ")}) or type new:`;
+      clientNameInput = window.prompt(clientPromptMessage, existingClientNames[0] || "");
     } else {
-      clientNameInput = window.prompt(promptMessage, "");
+      clientNameInput = window.prompt(clientPromptMessage, "");
     }
 
     if (!clientNameInput || clientNameInput.trim() === "") {
-      toast({ title: "Booking Cancelled", description: "Client name is required.", variant: "destructive" });
+      toast({ title: "Booking Cancelled", description: "Client name is required. Please try again and enter a client name.", variant: "destructive" });
       return;
     }
     const finalClientName = clientNameInput.trim();
 
     const serviceDetailsInput = window.prompt("Enter service details (e.g., Vocal Recording, Mixing):", "Session");
-    if (!serviceDetailsInput || serviceDetailsInput.trim() === "") {
-      toast({ title: "Booking Cancelled", description: "Service details are required.", variant: "destructive" });
-      return;
+    let finalServiceDetails = "Session";
+    if (serviceDetailsInput && serviceDetailsInput.trim() !== "") {
+      finalServiceDetails = serviceDetailsInput.trim();
+    } else if (serviceDetailsInput === null) { // User cancelled the prompt
+        toast({ title: "Booking Cancelled", description: "Service details entry was cancelled.", variant: "destructive" });
+        return;
     }
-    const finalServiceDetails = serviceDetailsInput.trim();
+
 
     const priceInput = window.prompt(`Enter total price for the ${selectedSlots.length} selected session(s):`, "50");
     let totalPriceForSession = 0;
     if (priceInput !== null) {
         totalPriceForSession = parseFloat(priceInput);
         if (isNaN(totalPriceForSession) || totalPriceForSession < 0) {
-            toast({ title: "Invalid Price", description: "Price was not a valid number. Defaulting to 0.", variant: "destructive" });
-            totalPriceForSession = 0;
+            toast({ title: "Booking Update", description: "Price was not a valid number. Defaulting to $0 for this booking.", variant: "destructive" });
+            totalPriceForSession = 0; // Default to 0 if invalid, but continue booking
         }
     } else { 
         toast({ title: "Booking Cancelled", description: "Price input was cancelled.", variant: "destructive" });
@@ -257,3 +264,4 @@ export function CalendarView({
     </div>
   );
 }
+
