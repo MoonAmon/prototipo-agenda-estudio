@@ -54,6 +54,7 @@ export function checkSlotAvailability(
     const bookingStartTime = booking.startTime;
     const bookingEndTime = booking.endTime;
 
+    // Check if the slot is directly booked
     if (
       (slotTime >= bookingStartTime && slotTime < bookingEndTime) ||
       (slotEndTime > bookingStartTime && slotEndTime <= bookingEndTime) ||
@@ -63,6 +64,7 @@ export function checkSlotAvailability(
     }
   }
 
+  // Check if the slot is a buffer for another booking
   for (const booking of bookings) {
     const bookingStartTime = booking.startTime;
     const bookingEndTime = booking.endTime;
@@ -70,9 +72,11 @@ export function checkSlotAvailability(
     const bufferBeforeStart = subHours(bookingStartTime, BUFFER_HOURS);
     const bufferAfterEnd = addHours(bookingEndTime, BUFFER_HOURS);
 
+    // Is the slot within the buffer period before the booking?
     if (slotTime >= bufferBeforeStart && slotTime < bookingStartTime) {
       return { isBooked: false, isBuffer: true, bookingDetails: booking };
     }
+    // Is the slot within the buffer period after the booking?
     if (slotTime >= bookingEndTime && slotTime < bufferAfterEnd) {
       return { isBooked: false, isBuffer: true, bookingDetails: booking };
     }
@@ -96,7 +100,6 @@ export function getMockBookings(weekDates: Date[]): Booking[] {
     clientName: 'Alice Wonderland',
     service: 'Vocal Recording',
     title: 'Alice - Vocals',
-    price: 100
   });
   bookings.push({
     id: '2',
@@ -105,7 +108,6 @@ export function getMockBookings(weekDates: Date[]): Booking[] {
     clientName: 'Bob The Builder',
     service: 'Mixing Session',
     title: 'Bob - Mix',
-    price: 150
   });
    bookings.push({
     id: '3',
@@ -114,7 +116,6 @@ export function getMockBookings(weekDates: Date[]): Booking[] {
     clientName: 'Charlie Chaplin',
     service: 'Podcast Production',
     title: 'Charlie - Podcast',
-    price: 80
   });
    bookings.push({
     id: '4',
@@ -123,16 +124,14 @@ export function getMockBookings(weekDates: Date[]): Booking[] {
     clientName: 'Diana Prince',
     service: 'Mastering',
     title: 'Diana - Master',
-    price: 200
   });
-  bookings.push({ // Booking for Alice in the same month to test aggregation
+  bookings.push({ 
     id: '5',
     startTime: setHours(setMinutes(tuesday,0), 10), 
     endTime: setHours(setMinutes(tuesday,0), 12),   
     clientName: 'Alice Wonderland',
     service: 'ADR Session',
     title: 'Alice - ADR',
-    price: 120
   });
 
 
@@ -145,22 +144,49 @@ export function calculateBookingDurationInHours(booking: Booking): number {
   return durationMillis / (1000 * 60 * 60);
 }
 
+function getTieredPricePerHour(totalHours: number): number {
+  if (totalHours >= 40) return 160;
+  if (totalHours >= 20) return 230; // 20 to 39 hours
+  if (totalHours >= 10) return 260; // 10 to 19 hours
+  // 0 to 9 hours (covers totalHours < 10)
+  return 350; 
+}
+
+export function calculateClientMonthlyInvoice(bookingDurations: number[]): ClientMonthlyMetrics {
+  const totalHours = bookingDurations.reduce((sum, duration) => sum + duration, 0);
+  const pricePerHour = getTieredPricePerHour(totalHours);
+  const totalAmount = totalHours * pricePerHour;
+  return { totalHours, pricePerHour, totalAmount };
+}
+
 export function calculateMonthlyClientMetrics(
   bookings: Booking[],
   targetDateForMonth: Date
 ): MonthlyRecipe {
-  const clientMetrics: MonthlyRecipe = {};
+  const clientBookingsForMonth: Record<string, number[]> = {};
 
+  // 1. Group booking durations by client for the target month
   bookings.forEach(booking => {
     if (isSameMonth(booking.startTime, targetDateForMonth) && booking.clientName) {
-      if (!clientMetrics[booking.clientName]) {
-        clientMetrics[booking.clientName] = { totalHours: 0, totalPrice: 0 };
+      if (!clientBookingsForMonth[booking.clientName]) {
+        clientBookingsForMonth[booking.clientName] = [];
       }
       const duration = calculateBookingDurationInHours(booking);
-      clientMetrics[booking.clientName].totalHours += duration;
-      clientMetrics[booking.clientName].totalPrice += booking.price || 0;
+      clientBookingsForMonth[booking.clientName].push(duration);
     }
   });
 
-  return clientMetrics;
+  const monthlyRecipe: MonthlyRecipe = {};
+  // 2. Calculate invoice for each client
+  for (const clientName in clientBookingsForMonth) {
+    const durations = clientBookingsForMonth[clientName];
+    if (durations && durations.length > 0) {
+        monthlyRecipe[clientName] = calculateClientMonthlyInvoice(durations);
+    } else {
+        // Handle cases where a client might exist but have no hours in the filtered month (should be rare with above logic)
+        monthlyRecipe[clientName] = { totalHours: 0, pricePerHour: getTieredPricePerHour(0), totalAmount: 0 };
+    }
+  }
+
+  return monthlyRecipe;
 }

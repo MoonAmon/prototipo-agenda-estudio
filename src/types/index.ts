@@ -7,7 +7,7 @@ export interface Booking {
   clientName: string; // Made mandatory for recipe calculation
   service?: string;
   title?: string; // Generic title for the booking event
-  price?: number; 
+  // price field removed as it's now calculated based on tiered hourly rates
 }
 
 export interface TimeSlot {
@@ -26,7 +26,9 @@ export interface DayWithSlots {
 // For the monthly recipe display
 export interface ClientMonthlyMetrics {
   totalHours: number;
-  totalPrice: number;
+  pricePerHour: number; // Price per hour based on the tier
+  totalAmount: number;  // Total amount for the month (totalHours * pricePerHour)
 }
 
 export type MonthlyRecipe = Record<string, ClientMonthlyMetrics>;
+

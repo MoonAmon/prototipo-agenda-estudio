@@ -21,8 +21,9 @@ export default function HomePage() {
   const [expandedClients, setExpandedClients] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
+    // Initialize with mock bookings relevant to the initial displayed date's week
     setBookings(getMockBookings(getWeekDates(displayedDate)));
-  }, []); 
+  }, [displayedDate]); // Re-fetch mock bookings if displayedDate changes significantly, or handle this more robustly if bookings were from a DB
 
   const handleNewBookings = (newlyConfirmedBookings: Booking[]) => {
     setBookings(prevBookings => [...prevBookings, ...newlyConfirmedBookings]);
@@ -52,7 +53,7 @@ export default function HomePage() {
               <li className="flex items-center"><MinusCircle className="mr-2 h-4 w-4 text-yellow-500" /> Buffer time (1 hour before/after booking)</li>
               <li className="flex items-center"><CheckSquare className="mr-2 h-4 w-4 text-blue-500" /> Slot selected for booking</li>
             </ul>
-            <p className="text-muted-foreground mb-6">Select available slots and click 'Book Selected' to make a reservation.</p>
+            <p className="text-muted-foreground mb-6">Select available slots and fill in the details below to make a reservation.</p>
             <div className="flex flex-wrap gap-4 mb-6">
               <Button 
                 onClick={() => exportCalendarAsImage(calendarExportId)} 
@@ -82,9 +83,9 @@ export default function HomePage() {
           
           <CalendarView 
             initialDate={displayedDate}
-            onDateChange={setDisplayedDate}
-            bookings={bookings}
-            onNewBookingsAdd={handleNewBookings}
+            onDateChange={setDisplayedDate} // Pass the setter for date changes
+            bookings={bookings} // Pass current bookings
+            onNewBookingsAdd={handleNewBookings} // Pass the handler for new bookings
             calendarId={calendarExportId}
           />
 
@@ -101,7 +102,8 @@ export default function HomePage() {
                       <div>
                         <strong className="text-primary-foreground">{clientName}:</strong> 
                         <span className="ml-2 text-foreground">{data.totalHours.toFixed(1)} hours</span>
-                        <span className="ml-2 font-semibold text-accent">${data.totalPrice.toFixed(2)}</span>
+                        <span className="ml-2 text-muted-foreground">(@ R${data.pricePerHour.toFixed(2)}/hr)</span>
+                        <span className="ml-2 font-semibold text-accent">Total: R${data.totalAmount.toFixed(2)}</span>
                       </div>
                       <Button variant="ghost" size="sm" onClick={() => toggleClientExpansion(clientName)} className="text-accent hover:text-accent/80">
                         {expandedClients[clientName] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -119,7 +121,6 @@ export default function HomePage() {
                               <li key={booking.id} className="p-2 bg-muted/30 rounded">
                                 <span className="font-medium">{format(booking.startTime, 'MMM d, HH:mm')}</span> - {booking.service || 'Session'} 
                                 ({calculateBookingDurationInHours(booking).toFixed(1)} hrs)
-                                {booking.price !== undefined && <span className="ml-2 text-accent/80">${booking.price.toFixed(2)}</span>}
                               </li>
                           ))}
                         </ul>

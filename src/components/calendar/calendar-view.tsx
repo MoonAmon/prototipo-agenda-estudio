@@ -35,8 +35,6 @@ interface CalendarViewProps {
   calendarId: string;
 }
 
-const HOURLY_RATE = 50; // Define a default hourly rate
-
 export function CalendarView({ 
   initialDate, 
   onDateChange, 
@@ -52,6 +50,7 @@ export function CalendarView({
   const [selectedClient, setSelectedClient] = useState<string>('');
   const [newClientName, setNewClientName] = useState<string>('');
   const [serviceDetails, setServiceDetails] = useState<string>('Session');
+  // HOURLY_RATE and bookingPrice state removed
 
   useEffect(() => {
     setCurrentDateInternal(initialDate);
@@ -118,6 +117,8 @@ export function CalendarView({
     const { isBooked, isBuffer } = checkSlotAvailability(slotTime, bookings);
     
     if (isBooked || isBuffer) {
+        // If a slot is already booked/buffer, ensure it's not in selectedSlots
+        // (though UI should prevent selecting these, this is a safeguard)
         setSelectedSlots(prevSelected => prevSelected.filter(s => s.getTime() !== slotTime.getTime()));
         toast({
           title: 'Slot Unavailable',
@@ -130,8 +131,10 @@ export function CalendarView({
     setSelectedSlots(prevSelected => {
       const index = prevSelected.findIndex(s => s.getTime() === slotTime.getTime());
       if (index > -1) {
+        // Deselect if already selected
         return prevSelected.filter(s => s.getTime() !== slotTime.getTime()); 
       } else {
+        // Add to selection and sort
         const newSelection = [...prevSelected, slotTime];
         newSelection.sort((a, b) => a.getTime() - b.getTime());
         return newSelection;
@@ -173,11 +176,12 @@ export function CalendarView({
       clientName: finalClientName,
       service: finalServiceDetails,
       title: `${finalClientName} - ${finalServiceDetails}`,
-      price: HOURLY_RATE, // Each slot (1 hour) costs the HOURLY_RATE
+      // Price is no longer set here; it will be calculated by the tiered system
     }));
 
     onNewBookingsAdd(newlyConfirmedBookings); 
     
+    // Reset selection and form fields
     setSelectedSlots([]); 
     setSelectedClient('');
     setNewClientName('');
@@ -185,7 +189,7 @@ export function CalendarView({
 
     toast({
       title: 'Booking Confirmed!',
-      description: `${newlyConfirmedBookings.length} slot(s) booked for ${finalClientName}. Total: $${newlyConfirmedBookings.reduce((sum, b) => sum + (b.price || 0), 0).toFixed(2)}`,
+      description: `${newlyConfirmedBookings.length} slot(s) booked for ${finalClientName}.`,
     });
   };
 
@@ -212,9 +216,10 @@ export function CalendarView({
           </h2>
           <Button variant="link" onClick={handleToday} className="text-sm text-accent p-0 h-auto">Go to Today</Button>
         </div>
-        <div className="min-w-[180px]"></div>
+        <div className="min-w-[180px]"></div> {/* Spacer */}
       </div>
 
+      {/* Calendar Grid */}
       <div className="overflow-x-auto">
         <table className="min-w-full border-collapse border border-border/50">
           <thead className="bg-secondary/50">
@@ -250,6 +255,7 @@ export function CalendarView({
         </table>
       </div>
 
+      {/* Booking Details Form - appears when slots are selected */}
       {selectedSlots.length > 0 && (
         <div className="mt-8 p-6 bg-secondary/30 rounded-lg shadow-md">
           <h3 className="text-lg font-semibold mb-4 text-primary-foreground">Booking Details for {selectedSlots.length} Slot(s)</h3>
@@ -293,7 +299,7 @@ export function CalendarView({
               />
             </div>
             
-            {/* Price input removed */}
+            {/* Price input has been removed */}
           </div>
           <Button 
             onClick={handleConfirmBooking} 
