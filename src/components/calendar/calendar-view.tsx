@@ -35,6 +35,8 @@ interface CalendarViewProps {
   calendarId: string;
 }
 
+const HOURLY_RATE = 50; // Define a default hourly rate
+
 export function CalendarView({ 
   initialDate, 
   onDateChange, 
@@ -47,12 +49,9 @@ export function CalendarView({
   const [selectedSlots, setSelectedSlots] = useState<Date[]>([]);
   const { toast } = useToast();
 
-  // State for the new booking details form
-  const [selectedClient, setSelectedClient] = useState<string>(''); // Stores client name or "NEW_CLIENT"
+  const [selectedClient, setSelectedClient] = useState<string>('');
   const [newClientName, setNewClientName] = useState<string>('');
   const [serviceDetails, setServiceDetails] = useState<string>('Session');
-  const [bookingPrice, setBookingPrice] = useState<string>('50');
-
 
   useEffect(() => {
     setCurrentDateInternal(initialDate);
@@ -94,11 +93,9 @@ export function CalendarView({
     setCurrentDateInternal(newDate);
     onDateChange(newDate); 
     setSelectedSlots([]); 
-    // Reset booking form fields when week changes
     setSelectedClient('');
     setNewClientName('');
     setServiceDetails('Session');
-    setBookingPrice('50');
   };
 
   const handlePrevWeek = () => {
@@ -121,7 +118,6 @@ export function CalendarView({
     const { isBooked, isBuffer } = checkSlotAvailability(slotTime, bookings);
     
     if (isBooked || isBuffer) {
-        // Prevent de-selection of already booked/buffer slots if they were somehow selected
         setSelectedSlots(prevSelected => prevSelected.filter(s => s.getTime() !== slotTime.getTime()));
         toast({
           title: 'Slot Unavailable',
@@ -170,14 +166,6 @@ export function CalendarView({
 
     const finalServiceDetails = serviceDetails.trim() || "Session";
     
-    let totalPriceForSession = parseFloat(bookingPrice);
-    if (isNaN(totalPriceForSession) || totalPriceForSession < 0) {
-        toast({ title: "Invalid Price", description: "Price must be a valid non-negative number. Defaulting to $0.", variant: "destructive" });
-        totalPriceForSession = 0; 
-    }
-
-    const pricePerSlot = selectedSlots.length > 0 ? totalPriceForSession / selectedSlots.length : 0;
-
     const newlyConfirmedBookings: Booking[] = selectedSlots.map(slotTimeToBook => ({
       id: `booking-${Date.now()}-${Math.random().toString(36).substring(7)}`,
       startTime: slotTimeToBook,
@@ -185,21 +173,19 @@ export function CalendarView({
       clientName: finalClientName,
       service: finalServiceDetails,
       title: `${finalClientName} - ${finalServiceDetails}`,
-      price: pricePerSlot, 
+      price: HOURLY_RATE, // Each slot (1 hour) costs the HOURLY_RATE
     }));
 
     onNewBookingsAdd(newlyConfirmedBookings); 
     
-    // Reset selections and form fields
     setSelectedSlots([]); 
     setSelectedClient('');
     setNewClientName('');
     setServiceDetails('Session');
-    setBookingPrice('50');
 
     toast({
       title: 'Booking Confirmed!',
-      description: `${newlyConfirmedBookings.length} slot(s) booked for ${finalClientName}.`,
+      description: `${newlyConfirmedBookings.length} slot(s) booked for ${finalClientName}. Total: $${newlyConfirmedBookings.reduce((sum, b) => sum + (b.price || 0), 0).toFixed(2)}`,
     });
   };
 
@@ -226,7 +212,6 @@ export function CalendarView({
           </h2>
           <Button variant="link" onClick={handleToday} className="text-sm text-accent p-0 h-auto">Go to Today</Button>
         </div>
-         {/* Placeholder for the button that is now part of the booking details form */}
         <div className="min-w-[180px]"></div>
       </div>
 
@@ -308,18 +293,7 @@ export function CalendarView({
               />
             </div>
             
-            <div>
-              <Label htmlFor="booking-price" className="text-foreground">Total Price for Session(s)</Label>
-              <Input 
-                id="booking-price" 
-                type="number" 
-                value={bookingPrice} 
-                onChange={(e) => setBookingPrice(e.target.value)} 
-                placeholder="e.g., 150"
-                min="0"
-                className="bg-input text-foreground"
-              />
-            </div>
+            {/* Price input removed */}
           </div>
           <Button 
             onClick={handleConfirmBooking} 
