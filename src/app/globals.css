@@ -14,19 +14,19 @@ body {
     --card-foreground: 0 0% 98%;
     --popover: 220 7% 18%;
     --popover-foreground: 0 0% 98%;
-    --primary: 267 24% 62%; /* Dark Lavender #947EB0 */
+    --primary: 145 40% 45%; /* Muted Green */
     --primary-foreground: 0 0% 98%;
     --secondary: 220 7% 25%;
     --secondary-foreground: 0 0% 98%;
     --muted: 220 7% 30%;
     --muted-foreground: 0 0% 63.9%;
-    --accent: 277 90% 72%; /* Electric Purple #BF77F6 */
+    --accent: 140 60% 55%; /* Vibrant Green */
     --accent-foreground: 0 0% 100%; /* White text on accent */
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 220 7% 30%;
     --input: 220 7% 22%;
-    --ring: 277 90% 72%; /* Electric Purple for rings */
+    --ring: 140 60% 55%; /* Vibrant Green for rings */
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
@@ -37,12 +37,12 @@ body {
     /* Sidebar specific colors, can remain or be adjusted if sidebar is used extensively */
     --sidebar-background: 220 7% 12%;
     --sidebar-foreground: 0 0% 95.9%;
-    --sidebar-primary: 267 24% 62%;
+    --sidebar-primary: 145 40% 45%; /* Muted Green */
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 277 90% 72%;
+    --sidebar-accent: 140 60% 55%; /* Vibrant Green */
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 220 7% 25%;
-    --sidebar-ring: 277 90% 72%;
+    --sidebar-ring: 140 60% 55%; /* Vibrant Green for rings */
   }
 
   .dark {
@@ -53,28 +53,28 @@ body {
     --card-foreground: 0 0% 98%;
     --popover: 220 7% 18%;
     --popover-foreground: 0 0% 98%;
-    --primary: 267 24% 62%;
+    --primary: 145 40% 45%; /* Muted Green */
     --primary-foreground: 0 0% 98%;
     --secondary: 220 7% 25%;
     --secondary-foreground: 0 0% 98%;
     --muted: 220 7% 30%;
     --muted-foreground: 0 0% 63.9%;
-    --accent: 277 90% 72%;
+    --accent: 140 60% 55%; /* Vibrant Green */
     --accent-foreground: 0 0% 100%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
     --border: 220 7% 30%;
     --input: 220 7% 22%;
-    --ring: 277 90% 72%;
+    --ring: 140 60% 55%; /* Vibrant Green for rings */
 
     --sidebar-background: 220 7% 12%;
     --sidebar-foreground: 0 0% 95.9%;
-    --sidebar-primary: 267 24% 62%;
+    --sidebar-primary: 145 40% 45%; /* Muted Green */
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 277 90% 72%;
+    --sidebar-accent: 140 60% 55%; /* Vibrant Green */
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 220 7% 25%;
-    --sidebar-ring: 277 90% 72%;
+    --sidebar-ring: 140 60% 55%; /* Vibrant Green for rings */
   }
 }
 
