@@ -411,9 +411,11 @@ export default function ManageProjectsClientsPage() {
                   const projectMetrics = calculateProjectCost(projectBookings, project);
                   
                   const totalBookedHours = projectMetrics?.totalHours || 0;
-                  const targetHours = project.targetHours || 0;
-                  const progressPercentage = targetHours > 0 ? Math.min((totalBookedHours / targetHours) * 100, 100) : 0;
-                  const isCompleted = targetHours > 0 && totalBookedHours >= targetHours;
+                  const targetHours = project.targetHours;
+                  const hasTarget = !!targetHours && targetHours > 0;
+
+                  const progressPercentage = hasTarget ? Math.min((totalBookedHours / targetHours) * 100, 100) : 0;
+                  const isCompleted = hasTarget && totalBookedHours >= targetHours;
                   const status = isCompleted ? 'Completo' : 'Em Execução';
 
                   return (
@@ -458,13 +460,23 @@ export default function ManageProjectsClientsPage() {
                                   {status}
                               </span>
                             </div>
-                            <div>
-                                <div className="flex justify-between text-sm text-muted-foreground mb-1">
-                                    <span>Progresso das Horas</span>
-                                    <span>{totalBookedHours.toFixed(1)} / {targetHours}h</span>
-                                </div>
-                                <Progress value={progressPercentage} className="h-2" />
-                            </div>
+                            {hasTarget ? (
+                              <div>
+                                  <div className="flex justify-between text-sm text-muted-foreground mb-1">
+                                      <span>Progresso das Horas</span>
+                                      <span>{totalBookedHours.toFixed(1)} / {targetHours}h</span>
+                                  </div>
+                                  <Progress value={progressPercentage} className="h-2" />
+                              </div>
+                            ) : (
+                               <div>
+                                  <div className="flex justify-between text-sm text-muted-foreground mb-1">
+                                      <span>Horas Registradas</span>
+                                      <span>{totalBookedHours.toFixed(1)}h</span>
+                                  </div>
+                              </div>
+                            )}
+
                             {isCompleted && (
                                 <div className="pt-2 flex justify-end">
                                     <Button 
