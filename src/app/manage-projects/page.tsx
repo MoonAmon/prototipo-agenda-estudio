@@ -125,6 +125,7 @@ export default function ManageProjectsClientsPage() {
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isDeleteClientDialogOpen, setIsDeleteClientDialogOpen] = useState(false);
   const [isDeleteProjectDialogOpen, setIsDeleteProjectDialogOpen] = useState(false);
+  const [isDeleteBookingDialogOpen, setIsDeleteBookingDialogOpen] = useState(false);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [isNotaFiscalModalOpen, setIsNotaFiscalModalOpen] = useState(false);
 
@@ -133,6 +134,7 @@ export default function ManageProjectsClientsPage() {
   const [editingProject, setEditingProject] = useState<ProjectDocument | null>(null);
   const [deletingClientId, setDeletingClientId] = useState<string | null>(null);
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
+  const [deletingBookingId, setDeletingBookingId] = useState<string | null>(null);
   const [addingProjectForClientId, setAddingProjectForClientId] = useState<string | null>(null);
   
   // State for receipt modal
@@ -231,6 +233,11 @@ export default function ManageProjectsClientsPage() {
     setDeletingProjectId(projectId);
     setIsDeleteProjectDialogOpen(true);
   };
+
+  const handleOpenDeleteBookingDialog = (bookingId: string) => {
+    setDeletingBookingId(bookingId);
+    setIsDeleteBookingDialogOpen(true);
+  };
   
   const handleOpenNotaFiscalModal = (client: ClientDocument) => {
     setGeneratingNotaForClient(client);
@@ -298,6 +305,14 @@ export default function ManageProjectsClientsPage() {
     toast({ title: "Projeto Excluído!", description: `O projeto "${projectName}" e seus agendamentos foram removidos.`, variant: 'destructive' });
     setIsDeleteProjectDialogOpen(false);
     setDeletingProjectId(null);
+  };
+
+  const confirmDeleteBooking = () => {
+    if (!deletingBookingId) return;
+    setBookings(bookings.filter(b => b.id !== deletingBookingId));
+    toast({ title: "Agendamento Cancelado", description: "A sessão foi removida do calendário.", variant: "destructive" });
+    setIsDeleteBookingDialogOpen(false);
+    setDeletingBookingId(null);
   };
   
   // Receipt Generation Logic
@@ -547,6 +562,7 @@ export default function ManageProjectsClientsPage() {
                                     <TableHead className="text-foreground">Horário de Início</TableHead>
                                     <TableHead className="text-foreground">Horário de Fim</TableHead>
                                     <TableHead className="text-foreground text-right">Duração (hrs)</TableHead>
+                                    <TableHead className="text-foreground text-right">Ações</TableHead>
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -557,6 +573,11 @@ export default function ManageProjectsClientsPage() {
                                         <TableCell>{format(new Date(booking.startTime), 'd MMM, yyyy HH:mm', { locale: ptBR })}</TableCell>
                                         <TableCell>{format(new Date(booking.endTime), 'd MMM, yyyy HH:mm', { locale: ptBR })}</TableCell>
                                         <TableCell className="text-right">{booking.duration.toFixed(1)}</TableCell>
+                                        <TableCell className="text-right">
+                                          <Button onClick={() => handleOpenDeleteBookingDialog(booking.id)} variant="ghost" size="icon" className="text-destructive h-8 w-8">
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        </TableCell>
                                       </TableRow>
                                   ))}
                                 </TableBody>
@@ -733,6 +754,22 @@ export default function ManageProjectsClientsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Delete Booking Confirmation */}
+      <AlertDialog open={isDeleteBookingDialogOpen} onOpenChange={setIsDeleteBookingDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancelar Agendamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. Isso removerá permanentemente o agendamento do calendário.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Não, manter agendamento</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteBooking} className="bg-destructive hover:bg-destructive/90">Sim, cancelar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       
       {/* Receipt Modal */}
       <Dialog open={isReceiptModalOpen} onOpenChange={setIsReceiptModalOpen}>
@@ -834,3 +871,5 @@ export default function ManageProjectsClientsPage() {
     </div>
   );
 }
+
+    
